@@ -32,6 +32,7 @@ using namespace inet::physicallayer;
 class IUpperMac;
 class IMacRadioInterface;
 class IRx;
+class ITx;
 class IStatistics;
 
 /**
@@ -40,7 +41,8 @@ class IStatistics;
 class INET_API Contention : public cSimpleModule, public IContention, protected ICollisionController::ICallback
 {
     public:
-        enum State { IDLE, DEFER, IFS_AND_BACKOFF, OWNING };
+        //enum State { IDLE, DEFER, IFS_AND_BACKOFF, OWNING };
+        enum State { IDLE, DEFER, IFS_AND_BACKOFF, OWNING, BACKOFF, BURST };
         enum EventType { START, MEDIUM_STATE_CHANGED, CORRUPTED_FRAME_RECEIVED, TRANSMISSION_GRANTED, INTERNAL_COLLISION, CHANNEL_RELEASED };
         static simsignal_t stateChangedSignal;
 
@@ -90,6 +92,9 @@ class INET_API Contention : public cSimpleModule, public IContention, protected 
         virtual void revokeBackoffOptimization();
         virtual void updateDisplayString();
         const char *getEventName(EventType event);
+
+        virtual void scheduleBurst();
+        virtual void sendBurst();
 
     public:
         Contention() {}
