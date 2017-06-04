@@ -42,24 +42,42 @@ const ITransmission *Ieee80211ScalarTransmitter::createTransmission(const IRadio
 {
     const TransmissionRequest *transmissionRequest = dynamic_cast<TransmissionRequest *>(macFrame->getControlInfo());
     const IIeee80211Mode *transmissionMode = computeTransmissionMode(transmissionRequest);
+    EV_DEBUG << "transmission mode:" << transmissionMode <<endl;
     const Ieee80211Channel *transmissionChannel = computeTransmissionChannel(transmissionRequest);
     W transmissionPower = computeTransmissionPower(transmissionRequest);
     bps transmissionBitrate = transmissionMode->getDataMode()->getNetBitrate();
+    EV_DEBUG << "Tx bit rate:" << transmissionBitrate << "\n";
     if (transmissionMode->getDataMode()->getNumberOfSpatialStreams() > transmitter->getAntenna()->getNumAntennas())
         throw cRuntimeError("Number of spatial streams is higher than the number of antennas");
+    EV_DEBUG<<"name in ScalarTransmitter:"<<macFrame->getName()<<endl;
     const simtime_t duration = transmissionMode->getDuration(macFrame->getBitLength());
-    const simtime_t endTime = startTime + duration;
     IMobility *mobility = transmitter->getAntenna()->getMobility();
     const Coord startPosition = mobility->getCurrentPosition();
     const Coord endPosition = mobility->getCurrentPosition();
     const EulerAngles startOrientation = mobility->getCurrentAngularPosition();
     const EulerAngles endOrientation = mobility->getCurrentAngularPosition();
     int headerBitLength = transmissionMode->getHeaderMode()->getBitLength();
+    EV_DEBUG << "header bit length:" << headerBitLength << "\n";
     int64_t payloadBitLength = macFrame->getBitLength();
-    const simtime_t preambleDuration = transmissionMode->getPreambleMode()->getDuration();
-    const simtime_t headerDuration = transmissionMode->getHeaderMode()->getDuration();
-    const simtime_t dataDuration = duration - headerDuration - preambleDuration;
-    return new Ieee80211ScalarTransmission(transmitter, macFrame, startTime, endTime, preambleDuration, headerDuration, dataDuration, startPosition, endPosition, startOrientation, endOrientation, modulation, headerBitLength, payloadBitLength, carrierFrequency, bandwidth, transmissionBitrate, transmissionPower, transmissionMode, transmissionChannel);
+
+    if (strcmp(macFrame->getName(),"BurstFrame")==0){
+        const simtime_t duration = 0.000009;
+        const simtime_t preambleDuration = transmissionMode->getPreambleMode()->getDuration();
+        const simtime_t headerDuration = transmissionMode->getHeaderMode()->getDuration();
+        const simtime_t endTime = startTime + duration;
+        const simtime_t dataDuration = duration - headerDuration - preambleDuration;
+        EV_DEBUG << "preamble duration:" << preambleDuration << "\t header duration:" << headerDuration << "\t data duration:" << dataDuration << "\n";     //MIO
+        EV_DEBUG << "duration:" << duration << "\t endTime:" << endTime << "\n";
+        return new Ieee80211ScalarTransmission(transmitter, macFrame, startTime, endTime, preambleDuration, headerDuration, dataDuration, startPosition, endPosition, startOrientation, endOrientation, modulation, headerBitLength, payloadBitLength, carrierFrequency, bandwidth, transmissionBitrate, transmissionPower, transmissionMode, transmissionChannel);
+    }
+    else
+        const simtime_t preambleDuration = transmissionMode->getPreambleMode()->getDuration();
+        const simtime_t headerDuration = transmissionMode->getHeaderMode()->getDuration();
+        const simtime_t endTime = startTime + duration;
+        const simtime_t dataDuration = duration - headerDuration - preambleDuration;
+        EV_DEBUG << "preamble duration:" << preambleDuration << "\t header duration:" << headerDuration << "\t data duration:" << dataDuration << "\n";     //MIO
+        EV_DEBUG << "duration:" << duration << "\t endTime:" << endTime << "\n";
+        return new Ieee80211ScalarTransmission(transmitter, macFrame, startTime, endTime, preambleDuration, headerDuration, dataDuration, startPosition, endPosition, startOrientation, endOrientation, modulation, headerBitLength, payloadBitLength, carrierFrequency, bandwidth, transmissionBitrate, transmissionPower, transmissionMode, transmissionChannel);
 }
 
 } // namespace physicallayer
