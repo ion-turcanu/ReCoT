@@ -27,7 +27,9 @@ simple Sink
     parameters:
         @display("i=block/sink");
         @signal[rcvdPk](type=cPacket);
+        @signal[th](type=cPacket);
         @statistic[rcvdPk](title="packets received"; source=rcvdPk; record=count,"sum(packetBytes)","vector(packetBytes)"; interpolationmode=none);
+        @statistic[th](title="throughput"; source=th; record=vector; interpolationmode=none);
     gates:
         input in[];
 }

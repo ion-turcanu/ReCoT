@@ -27,8 +27,14 @@ void Sink::initialize()
 {
     numPackets = 0;
     numBits = 0;
+    Bits = 0;
     throughput = 0;
     packetPerSec = 0;
+    interval = 0.5;
+    TH = 0;
+    msg_ap = new cMessage("Ap_selfMsg");
+    scheduleAt(simTime()+interval,msg_ap);
+    stat_throughput = registerSignal("th");
 
     WATCH(numPackets);
     WATCH(numBits);
@@ -38,14 +44,25 @@ void Sink::initialize()
 
 void Sink::handleMessage(cMessage *msg)
 {
-    numPackets++;
-    cPacket *packet = PK(msg);
-    numBits += packet->getBitLength();
-    emit(rcvdPkSignal, packet);
-    throughput = numBits / simTime();
-    packetPerSec = numPackets / simTime();
-
-    delete msg;
+    if(msg==msg_ap)
+    {
+        TH = Bits/interval;
+        emit(stat_throughput,TH);
+        cancelEvent(msg_ap);
+        scheduleAt(simTime()+interval,msg_ap);
+        Bits=0;
+    }
+    else
+    {
+        numPackets++;
+        cPacket *packet = PK(msg);
+        Bits += packet->getBitLength();
+        numBits += packet->getBitLength();
+        emit(rcvdPkSignal, packet);
+        throughput = numBits / simTime();
+        packetPerSec = numPackets / simTime();
+        delete msg;
+    }
 }
 
 void Sink::finish()

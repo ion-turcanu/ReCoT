@@ -31,11 +31,16 @@ class INET_API Sink : public cSimpleModule
   protected:
     int numPackets;
     long numBits;
+    long Bits;
     double throughput;    // bit/sec
+    double TH;
     double packetPerSec;
+    cMessage *msg_ap;
+    simtime_t interval;
 
     //statistics:
     static simsignal_t rcvdPkSignal;
+    simsignal_t stat_throughput;
 
   protected:
     virtual void initialize() override;
