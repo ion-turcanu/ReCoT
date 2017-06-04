@@ -138,7 +138,6 @@ void Rx::transmissionStateChanged(IRadio::TransmissionState state)
 
 void Rx::setOrExtendNav(simtime_t navInterval)
 {
-    ASSERT(navInterval >= 0);
     if (navInterval > 0) {
         simtime_t endNav = simTime() + navInterval;
         if (endNavTimer->isScheduled()) {
@@ -151,6 +150,7 @@ void Rx::setOrExtendNav(simtime_t navInterval)
         scheduleAt(endNav, endNavTimer);
         recomputeMediumFree();
     }
+    else return;
 }
 
 void Rx::updateDisplayString()
