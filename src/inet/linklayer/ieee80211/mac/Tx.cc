@@ -55,13 +55,16 @@ void Tx::transmitFrame(Ieee80211Frame *frame, ITxCallback *txCallback)
 
 void Tx::transmitFrame(Ieee80211Frame *frame, simtime_t ifs, ITxCallback *txCallback)
 {
+    EV_DEBUG << "nome del frame:" << frame->getName() <<endl;
     Enter_Method("transmitFrame(\"%s\")", frame->getName());
     take(frame);
     this->frame = frame;
     this->txCallback = txCallback;
 
+    delay = 0.000001;
     ASSERT(!endIfsTimer->isScheduled() && !transmitting);    // we are idle
-    scheduleAt(simTime() + ifs, endIfsTimer);
+    EV_DEBUG <<"endIfsTimer = " << simTime() + ifs + delay <<"\n";
+    scheduleAt(simTime() + ifs + delay, endIfsTimer);
     if (hasGUI())
         updateDisplayString();
 }

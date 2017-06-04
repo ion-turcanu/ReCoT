@@ -43,6 +43,8 @@ class INET_API Tx : public cSimpleModule, public ITx
         Ieee80211Frame *frame = nullptr;
         cMessage *endIfsTimer = nullptr;
         simtime_t durationField;
+        simtime_t delay;
+
         bool transmitting = false;
         ITxCallback *txCallback = nullptr;
 
