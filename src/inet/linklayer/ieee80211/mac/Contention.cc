@@ -39,9 +39,17 @@ simsignal_t Contention::stateChangedSignal = registerSignal("stateChanged");
 Register_Enum(Contention::State,
         (Contention::IDLE,
          Contention::DEFER,
-         Contention::IFS_AND_BACKOFF,
+         Contention::IFS,
          Contention::BACKOFF,
          Contention::BURST,
+         Contention::BACKOFF1,
+         Contention::BURST1,
+         Contention::BACKOFF2,
+         Contention::BURST2,
+         Contention::BACKOFF3,
+         Contention::BURST3,
+         Contention::BACKOFF4,
+         Contention::BURST4,
          Contention::OWNING));
 
 Define_Module(Contention);
@@ -120,7 +128,8 @@ void Contention::startContention(simtime_t ifs, simtime_t eifs, int cwMin, int c
     this->retryCount = retryCount;
     this->callback = callback;
 
-    int cw = computeCw(cwMin, cwMax, retryCount);
+//    int cw = computeCw(cwMin, cwMax, retryCount);
+    int cw = 4;
     backoffSlots = intrand(cw + 1);
 
 #ifdef NS3_VALIDATION
@@ -226,6 +235,8 @@ int Contention::computeCw(int cwMin, int cwMax, int retryCount)
     if (hasGUI())
         updateDisplayString();
 }*/
+
+                            // 4 ROUND CON IFS PRIMO STATO //
 void Contention::handleWithFSM(EventType event, cMessage *msg)
 {
     emit(stateChangedSignal, fsm.getState());
@@ -237,27 +248,27 @@ void Contention::handleWithFSM(EventType event, cMessage *msg)
 
         FSMA_State(IDLE) {
             FSMA_Enter(mac->sendDownPendingRadioConfigMsg());
-            FSMA_Event_Transition(Starting-IFS-and-Backoff,
+            FSMA_Event_Transition(Starting-IFS,
                     event == START && mediumFree,
-                    IFS_AND_BACKOFF,
+                    IFS,
                     scheduleTransmissionRequest();
-                    );
+            );
             FSMA_Event_Transition(Busy,
                     event == START && !mediumFree,
                     DEFER,
                     ;
-                    );
-            FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
-            FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
-            FSMA_Ignore_Event(event==CHANNEL_RELEASED);
-            FSMA_Fail_On_Unhandled_Event();
-        }
+            );
+    FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
+    FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
+    FSMA_Ignore_Event(event==CHANNEL_RELEASED);
+    FSMA_Fail_On_Unhandled_Event();
+}
 
-        FSMA_State(DEFER) {
+    FSMA_State(DEFER) {
             FSMA_Enter(mac->sendDownPendingRadioConfigMsg());
-            FSMA_Event_Transition(Restarting-IFS-and-Backoff,
+            FSMA_Event_Transition(Restarting-IFS,
                     event == MEDIUM_STATE_CHANGED && mediumFree,
-                    IFS_AND_BACKOFF,
+                    IFS,
                     scheduleTransmissionRequest();
                     );
             FSMA_Event_Transition(Use-EIFS,
@@ -265,94 +276,219 @@ void Contention::handleWithFSM(EventType event, cMessage *msg)
                     DEFER,
                     endEifsTime = simTime() + eifs;
                     );
-            FSMA_Fail_On_Unhandled_Event();
-        }
+    FSMA_Fail_On_Unhandled_Event();
+}
 
-        FSMA_State(IFS_AND_BACKOFF) {
-            FSMA_Enter(mac->sendDownPendingRadioConfigMsg());
-            FSMA_Event_Transition(IFS_and_Backoff-expired,
+    FSMA_State(IFS) {
+            FSMA_Enter();
+            FSMA_Event_Transition(IFS-expired,
                     event == TRANSMISSION_GRANTED && mediumFree,
                     BURST,
                     scheduleBurst();
-                    );
+            );
             FSMA_Event_Transition(Defer-on-channel-busy,
                     event == MEDIUM_STATE_CHANGED && !mediumFree,
                     DEFER,
                     cancelTransmissionRequest();
-                    );
+            );
             FSMA_Event_Transition(optimized-internal-collision,
                     event == INTERNAL_COLLISION && backoffOptimizationDelta != SIMTIME_ZERO,
-                    IFS_AND_BACKOFF,
+                    IFS,
                     revokeBackoffOptimization();
-                    );
+            );
             FSMA_Event_Transition(Internal-collision,
                     event == INTERNAL_COLLISION,
                     IDLE,
                     finallyReportInternalCollision = true; lastIdleStartTime = simTime();
-                    );
+            );
             FSMA_Event_Transition(Use-EIFS,
                     event == CORRUPTED_FRAME_RECEIVED,
-                    IFS_AND_BACKOFF,
+                    IFS,
                     switchToEifs();
-                    );
-            FSMA_Fail_On_Unhandled_Event();
-        }
-
-        FSMA_State(BURST) {
-            FSMA_Event_Transition(Backoff-expired,
-                    event == TRANSMISSION_GRANTED && mediumFree,
-                    BACKOFF,
-                    sendBurst();
-                    scheduleBurst();
             );
-            FSMA_Event_Transition(Defer-on-channel-busy,
-                    event == MEDIUM_STATE_CHANGED && !mediumFree,
-                    DEFER,
-                    cancelTransmissionRequest();
-            );
-            FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
-            FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
-            FSMA_Ignore_Event(event==CHANNEL_RELEASED);
             FSMA_Fail_On_Unhandled_Event();
-        }
+}
 
-        FSMA_State(BACKOFF) {
-            FSMA_Event_Transition(Backoff-expired,
-                    event == TRANSMISSION_GRANTED && mediumFree,
-                    OWNING,
-                    finallyReportChannelAccessGranted = true;
-            );
-            FSMA_Event_Transition(Defer-on-channel-busy,
-                    event == MEDIUM_STATE_CHANGED && !mediumFree,
-                    DEFER,
-                    cancelTransmissionRequest();
-            );
-            FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
-            FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
-            FSMA_Ignore_Event(event==CHANNEL_RELEASED);
-            FSMA_Fail_On_Unhandled_Event();
-        }
+    FSMA_State(BURST) {
+        FSMA_Enter();
+        FSMA_Event_Transition(Backoff-expired,
+                event == TRANSMISSION_GRANTED && mediumFree,
+                BACKOFF,
+                sendBurst();
+                );
 
-        FSMA_State(OWNING) {
-            FSMA_Event_Transition(Channel-Released,
-                    event == CHANNEL_RELEASED,
-                    IDLE,
-                    lastIdleStartTime = simTime();
-                    );
-            FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
-            FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
-            FSMA_Fail_On_Unhandled_Event();
-        }
+        FSMA_Event_Transition(Defer-on-channel-busy,
+                event == MEDIUM_STATE_CHANGED && !mediumFree,
+                DEFER,
+                cancelTransmissionRequest();
+                );
+        FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
+        FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
+        FSMA_Ignore_Event(event==CHANNEL_RELEASED);
+        FSMA_Fail_On_Unhandled_Event();
+}
 
-    }
+    FSMA_State(BURST2) {
+        FSMA_Enter();
+        FSMA_Event_Transition(Backoff-expired,
+                event == TRANSMISSION_GRANTED && mediumFree,
+                BACKOFF2,
+                sendBurst();
+                );
+
+        FSMA_Event_Transition(Defer-on-channel-busy,
+                event == MEDIUM_STATE_CHANGED && !mediumFree,
+                DEFER,
+                cancelTransmissionRequest();
+                );
+
+    FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
+    FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
+    FSMA_Ignore_Event(event==CHANNEL_RELEASED);
+    FSMA_Fail_On_Unhandled_Event();
+}
+
+    FSMA_State(BURST3) {
+        FSMA_Enter();
+        FSMA_Event_Transition(Backoff-expired,
+                event == TRANSMISSION_GRANTED && mediumFree,
+                BACKOFF3,
+                sendBurst();
+                );
+
+        FSMA_Event_Transition(Defer-on-channel-busy,
+                event == MEDIUM_STATE_CHANGED && !mediumFree,
+                DEFER,
+                cancelTransmissionRequest();
+                );
+
+    FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
+    FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
+    FSMA_Ignore_Event(event==CHANNEL_RELEASED);
+    FSMA_Fail_On_Unhandled_Event();
+}
+
+    FSMA_State(BURST4) {
+        FSMA_Enter();
+        FSMA_Event_Transition(Backoff-expired,
+                event == TRANSMISSION_GRANTED && mediumFree,
+                BACKOFF4,
+                sendBurst();
+                );
+
+        FSMA_Event_Transition(Defer-on-channel-busy,
+                event == MEDIUM_STATE_CHANGED && !mediumFree,
+                DEFER,
+                cancelTransmissionRequest();
+                );
+
+    FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
+    FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
+    FSMA_Ignore_Event(event==CHANNEL_RELEASED);
+    FSMA_Fail_On_Unhandled_Event();
+}
+
+
+    FSMA_State(BACKOFF) {
+        FSMA_Enter();
+        FSMA_Event_Transition(Backoff-expired,
+                event == TRANSMISSION_GRANTED && mediumFree,
+                BURST2,
+                scheduleBurst();
+                );
+        FSMA_Event_Transition(Defer-on-channel-busy,
+                event == MEDIUM_STATE_CHANGED && mediumFree,
+                BURST2,
+                scheduleBurst();
+                );
+
+    FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
+    FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
+    FSMA_Ignore_Event(event==CHANNEL_RELEASED);
+    FSMA_Fail_On_Unhandled_Event();
+}
+
+    FSMA_State(BACKOFF2) {
+        FSMA_Enter();
+        FSMA_Event_Transition(Backoff-expired,
+                event == TRANSMISSION_GRANTED && mediumFree,
+                BURST3,
+                scheduleBurst();
+                );
+
+        FSMA_Event_Transition(Defer-on-channel-busy,
+                event == MEDIUM_STATE_CHANGED && mediumFree,
+                BURST3,
+                scheduleBurst();
+                );
+
+    FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
+    FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
+    FSMA_Ignore_Event(event==CHANNEL_RELEASED);
+    FSMA_Fail_On_Unhandled_Event();
+}
+
+    FSMA_State(BACKOFF3) {
+        FSMA_Enter();
+        FSMA_Event_Transition(Backoff-expired,
+                event == TRANSMISSION_GRANTED && mediumFree,
+                BURST4,
+                scheduleBurst();
+                );
+        FSMA_Event_Transition(Defer-on-channel-busy,
+                event == MEDIUM_STATE_CHANGED && mediumFree,
+                BURST4,
+                scheduleBurst();
+                );
+
+    FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
+    FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
+    FSMA_Ignore_Event(event==CHANNEL_RELEASED);
+    FSMA_Fail_On_Unhandled_Event();
+}
+
+
+    FSMA_State(BACKOFF4) {
+        FSMA_Enter();
+        FSMA_Event_Transition(Backoff-expired,
+                event == TRANSMISSION_GRANTED && mediumFree,
+                OWNING,
+                finallyReportChannelAccessGranted = true;
+                );
+        FSMA_Event_Transition(Defer-on-channel-busy,
+                event == MEDIUM_STATE_CHANGED && mediumFree,
+                OWNING,
+                finallyReportChannelAccessGranted = true;
+                );
+
+    FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
+    FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
+    FSMA_Ignore_Event(event==CHANNEL_RELEASED);
+    FSMA_Fail_On_Unhandled_Event();
+}
+
+    FSMA_State(OWNING) {
+        FSMA_Event_Transition(Channel-Released,
+                event == CHANNEL_RELEASED,
+                IDLE,
+                lastIdleStartTime = simTime();
+                );
+    FSMA_Ignore_Event(event==MEDIUM_STATE_CHANGED);
+    FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);
+    FSMA_Fail_On_Unhandled_Event();
+}
+
+}
     emit(stateChangedSignal, fsm.getState());
     if (finallyReportChannelAccessGranted)
-        reportChannelAccessGranted();
+    reportChannelAccessGranted();
     if (finallyReportInternalCollision)
-        reportInternalCollision();
+    reportInternalCollision();
     if (hasGUI())
-        updateDisplayString();
+    updateDisplayString();
 }
+
+
 
 void Contention::mediumStateChanged(bool mediumFree)
 {
@@ -414,7 +550,8 @@ void Contention::scheduleTransmissionRequest()
 
     simtime_t now = simTime();
     bool useEifs = endEifsTime > now + ifs;
-    simtime_t waitInterval = (useEifs ? eifs : ifs) + backoffSlots * slotTime;
+    simtime_t waitInterval = (useEifs ? eifs : ifs);
+    EV_DEBUG << " wait interval:" << waitInterval <<endl;
 
     if (backoffOptimization && fsm.getState() == IDLE) {
         // we can pretend the frame has arrived into the queue a little bit earlier, and may be able to start transmitting immediately
@@ -505,7 +642,9 @@ void Contention::scheduleBurst(){
     simtime_t now = simTime();
     int cw = 4;
     int backoffSlots = intrand(cw-1);
+    EV_DEBUG << "backoff Slots:" << backoffSlots <<endl;
     simtime_t myWaitInterval = backoffSlots*slotTime;
+    EV_DEBUG << "wait interval:" << myWaitInterval <<endl;
     scheduledTransmissionTime = now + myWaitInterval;
     scheduleTransmissionRequestFor(scheduledTransmissionTime);
 }

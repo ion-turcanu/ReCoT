@@ -42,7 +42,7 @@ class INET_API Contention : public cSimpleModule, public IContention, protected 
 {
     public:
         //enum State { IDLE, DEFER, IFS_AND_BACKOFF, OWNING };
-        enum State { IDLE, DEFER, IFS_AND_BACKOFF, OWNING, BACKOFF, BURST };
+        enum State { IDLE, DEFER, IFS, OWNING, BACKOFF, BACKOFF1, BACKOFF2, BACKOFF3, BACKOFF4, BURST, BURST1, BURST2, BURST3, BURST4 };
         enum EventType { START, MEDIUM_STATE_CHANGED, CORRUPTED_FRAME_RECEIVED, TRANSMISSION_GRANTED, INTERNAL_COLLISION, CHANNEL_RELEASED };
         static simsignal_t stateChangedSignal;
 
